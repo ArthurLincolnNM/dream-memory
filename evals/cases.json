@@ -1,0 +1,220 @@
+{
+  "$comment": "Regression eval cases for dream-memory recall. Each case defines a query and the expected outcome (target, category, content match). Used by /dream-eval to measure precision@k and recall@k against the current scoring heuristics (BM25 + score floor + decay + IDF anchor). Adding a new case = documenting a new invariant.",
+  "version": 1,
+  "k": 5,
+  "cases": [
+    {
+      "id": "pt-br-editor-preference",
+      "description": "Recall a pt-BR preference about the user's editor. Tests diacritic handling and target filtering.",
+      "query": "qual editor você usa",
+      "expectedTarget": "user",
+      "expectedCategory": "preference",
+      "mustContain": "Zed"
+    },
+    {
+      "id": "terminal-config",
+      "description": "Recall a convention about terminal config from project memory.",
+      "query": "terminal shell preference",
+      "expectedTarget": "project",
+      "expectedCategory": "convention",
+      "mustContain": "ghostty"
+    },
+    {
+      "id": "tool-failure-pattern",
+      "description": "Surface a known tool-quirk/failure pattern for a specific tool.",
+      "query": "erro bash comando falha",
+      "expectedTarget": "failure",
+      "expectedCategory": "tool-quirk",
+      "mustContain": "bash"
+    },
+    {
+      "id": "user-correction",
+      "description": "Recall a correction the user gave (replaces a previous instruction).",
+      "query": "nao usar python 2",
+      "expectedTarget": "user",
+      "expectedCategory": "correction",
+      "mustContain": "python 3"
+    },
+    {
+      "id": "factual-perm",
+      "description": "Find a permanent factual memory (e.g., a phone number or system fact).",
+      "query": "endereço repositório principal",
+      "expectedTarget": "user",
+      "expectedCategory": "preference",
+      "mustContain": "github.com"
+    },
+    {
+      "id": "insight-derivation",
+      "description": "Recall a derived insight (query-synthesis) — should rank highly because of higher tier.",
+      "query": "padrão de uso pt-BR",
+      "expectedTarget": "memory",
+      "expectedCategory": "insight",
+      "mustContain": "knowledge compounding"
+    },
+    {
+      "id": "project-convention-tabs",
+      "description": "Recall a project-specific convention (not bleeding to global).",
+      "query": "indent tabs espaços",
+      "expectedTarget": "project",
+      "expectedCategory": "convention",
+      "mustContain": "tabs"
+    },
+    {
+      "id": "agent-convention",
+      "description": "Recall an agent-scoped convention (only visible to that agent).",
+      "query": "estilo resposta formal",
+      "expectedTarget": "project",
+      "expectedCategory": "convention",
+      "mustContain": "português"
+    },
+    {
+      "id": "negation-handling",
+      "description": "Test that the recall system surfaces a memory even when query has negation words.",
+      "query": "não usar docker compose",
+      "expectedTarget": "user",
+      "expectedCategory": "preference",
+      "mustContain": "docker"
+    },
+    {
+      "id": "multilingual-mix",
+      "description": "Query in en, memory content in pt-BR — tests cross-language recall.",
+      "query": "version control workflow",
+      "expectedTarget": "project",
+      "expectedCategory": "convention",
+      "mustContain": "git rebase"
+    },
+    {
+      "id": "specific-fact-anchor",
+      "description": "A specific factual detail (UUID-like). Anchor token should match.",
+      "query": "port 5432 postgres",
+      "expectedTarget": "project",
+      "expectedCategory": "convention",
+      "mustContain": "5432"
+    },
+    {
+      "id": "temporal-recent",
+      "description": "Recent memory (not yet decay-weighted heavily) should rank high.",
+      "query": "última decisão arquitetura",
+      "expectedTarget": "memory",
+      "expectedCategory": "insight",
+      "mustContain": "decisão"
+    },
+    {
+      "id": "scope-separation",
+      "description": "Verify that project-scope query does NOT leak global-scope memories. Negative test.",
+      "query": "convenção específica do projeto A",
+      "expectedTarget": "project",
+      "expectedCategory": "convention",
+      "mustContain": "projeto A",
+      "mustNotContain": "convenção global"
+    },
+    {
+      "id": "failure-with-error-message",
+      "description": "Surface a failure memory by searching for the error pattern it describes.",
+      "query": "ECONNREFUSED",
+      "expectedTarget": "failure",
+      "expectedCategory": "tool-quirk",
+      "mustContain": "ECONNREFUSED"
+    },
+    {
+      "id": "low-frequency-fact",
+      "description": "A factual memory with rare tokens. Tests IDF anchor selection.",
+      "query": "kubernetes operator pattern",
+      "expectedTarget": "memory",
+      "expectedCategory": "insight",
+      "mustContain": "operator"
+    },
+    {
+      "id": "en-negation-mismatch",
+      "description": "Search for an English negative preference. Verifies search handles 'not'/'don't' tokens correctly. The contradiction detection (in detectContradictions) checks hasNegationMismatch to force keep-both for opposite-polarity pairs — this case documents the search side, the integration test in evals/integration.test.ts covers the action side.",
+      "query": "don't use Vim anymore",
+      "expectedTarget": "user",
+      "expectedCategory": "preference",
+      "mustContain": "don't use Vim"
+    },
+    {
+      "id": "pt-br-negation-mismatch",
+      "description": "Search for a pt-BR negative preference. The 'não' token is critical for contradiction detection — pair with 'uso Zed' (positive) it triggers negation mismatch → keep-both.",
+      "query": "não uso Zed mais",
+      "expectedTarget": "user",
+      "expectedCategory": "preference",
+      "mustContain": "não uso Zed"
+    },
+    {
+      "id": "en-both-negated",
+      "description": "Both memories have negation. Should NOT trigger negation mismatch (both are negative). Bigram similarity still applies.",
+      "query": "don't use Emacs prefer",
+      "expectedTarget": "user",
+      "expectedCategory": "preference",
+      "mustContain": "don't use Emacs"
+    },
+    {
+      "id": "en-no-negation-baseline",
+      "description": "Sanity check: similar positive memories. No negation involved, regular contradiction flow applies. Ensures the negation fix doesn't regress normal case detection.",
+      "query": "use Neovim",
+      "expectedTarget": "user",
+      "expectedCategory": "preference",
+      "mustContain": "use Neovim"
+    },
+    {
+      "id": "link-auto-link-related",
+      "description": "Add two related memories and verify the second one has the first in its linked_to list. Auto-link should kick in for content with shared key terms.",
+      "query": "vim keybindings in editor",
+      "expectedTarget": "user",
+      "expectedCategory": "preference",
+      "mustContain": "vim keybindings"
+    },
+    {
+      "id": "link-expansion-surfacing",
+      "description": "Search for a query that matches a memory's content, verify the linked memory appears in results via expansion. Tests the 1-hop graph traversal in scopedSearch.",
+      "query": "Zed editor vim",
+      "expectedTarget": "user",
+      "expectedCategory": "preference",
+      "mustContain": "Zed editor"
+    },
+    {
+      "id": "link-no-self-link",
+      "description": "Sanity check: a memory doesn't link to itself. The excludeId param in findRelatedMemories should prevent this.",
+      "query": "user prefers unique isolated topic",
+      "expectedTarget": "user",
+      "expectedCategory": "preference",
+      "mustContain": "isolated topic"
+    },
+    {
+      "id": "link-target-separation",
+      "description": "Different target types don't link. A user preference shouldn't auto-link with a project convention, even if content overlaps.",
+      "query": "convenção projeto",
+      "expectedTarget": "project",
+      "expectedCategory": "convention",
+      "mustContain": "projeto"
+    },
+    {
+      "id": "adversarial-nonexistent-topic",
+      "description": "F10: Query about a topic that doesn't exist in the corpus. System should abstain (return low scores).",
+      "query": "quantum computing entanglement protocol",
+      "expectedTarget": "user",
+      "maxScore": 0.3
+    },
+    {
+      "id": "adversarial-nonsense-query",
+      "description": "F10: Gibberish query with no semantic overlap. System should return nothing meaningful.",
+      "query": "xkrt plmnb qwerty asdfgh",
+      "expectedTarget": "user",
+      "maxScore": 0.2
+    },
+    {
+      "id": "adversarial-specific-uuid",
+      "description": "F10: Query for a specific UUID that doesn't exist. Should not match any memory.",
+      "query": "550e8400-e29b-41d4-a716-446655440000",
+      "expectedTarget": "user",
+      "maxScore": 0.15
+    },
+    {
+      "id": "adversarial-wrong-domain",
+      "description": "F10: Query about a technology/domain not in the corpus. Should abstain.",
+      "query": "solidity smart contract gas optimization",
+      "expectedTarget": "project",
+      "maxScore": 0.25
+    }
+  ]
+}
